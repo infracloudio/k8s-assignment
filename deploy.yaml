@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: example
+  template:
+    metadata:
+      labels:
+        app: example
+    spec:
+      initContainers:
+      - name: init-nginx-config
+        image: alpine:latest
+        command: ['/bin/sh', '-c', 'apk add --no-cache openssl && echo "${USERNAME}:$(openssl passwd -apr1 ${PASSWORD})" > /etc/nginx/.htpasswd']
+        env:
+        - name: USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: example-secret
+              key: username
+        - name: PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: example-secret
+              key: <secret-key>
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/nginx/
+      containers:
+      - name: example-container
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/nginx/
+        - name: nginx-config-volume
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+      volumes:
+      - name: config-volume
+        emptyDir: {}
+      - name: <nginx-config-volume-name>
+        configMap:
+          name: nginx-config
+          items:
+            - key: nginx.conf
+              path: nginx.conf
+
